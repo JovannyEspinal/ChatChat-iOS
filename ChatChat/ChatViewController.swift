@@ -42,6 +42,7 @@ class ChatViewController: JSQMessagesViewController {
       userIsTypingRef.setValue(newValue)
     }
   }
+  var usersTypingQuery: FQuery!
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -143,5 +144,16 @@ class ChatViewController: JSQMessagesViewController {
     let typingIndicatorRef = rootRef.childByAppendingPath("typingIndicator")
     userIsTypingRef = typingIndicatorRef.childByAppendingPath(senderId)
     userIsTypingRef.onDisconnectRemoveValue()
+    
+    usersTypingQuery = typingIndicatorRef.queryOrderedByValue().queryEqualToValue(true)
+    
+    usersTypingQuery.observeEventType(.Value) { (data: FDataSnapshot!) in
+      if data.childrenCount == 1 && self.isTyping {
+        return
+      }
+      
+      self.showTypingIndicator = data.childrenCount > 0
+      self.scrollToBottomAnimated(true)
+    }
   }
 }
