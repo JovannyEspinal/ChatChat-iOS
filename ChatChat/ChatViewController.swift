@@ -31,6 +31,17 @@ class ChatViewController: JSQMessagesViewController {
   var incomingBubbleImageView: JSQMessagesBubbleImage!
   let rootRef = Firebase(url: "https://chatchat-espinaljovanny.firebaseio.com")
   var messageRef: Firebase!
+  var userIsTypingRef: Firebase!
+  private var localTyping = false
+  var isTyping: Bool {
+    get {
+      return localTyping
+    }
+    set {
+      localTyping = newValue
+      userIsTypingRef.setValue(newValue)
+    }
+  }
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -45,6 +56,7 @@ class ChatViewController: JSQMessagesViewController {
   override func viewDidAppear(animated: Bool) {
     super.viewDidAppear(animated)
     observeMessages()
+    observeTyping()
   }
   
   override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
@@ -56,6 +68,7 @@ class ChatViewController: JSQMessagesViewController {
     itemRef.setValue(messageItem)
     JSQSystemSoundPlayer.jsq_playMessageSentSound()
     finishSendingMessage()
+    isTyping = false
   }
   
   override func viewDidDisappear(animated: Bool) {
@@ -108,6 +121,12 @@ class ChatViewController: JSQMessagesViewController {
     messages.append(message)
   }
   
+  override func textViewDidChange(textView: UITextView) {
+    super.textViewDidChange(textView)
+    //if the text is empty, the user is typing
+   isTyping = textView.text != ""
+  }
+  
   private func observeMessages() {
     let messagesQuery = messageRef.queryLimitedToLast(25)
     
@@ -118,5 +137,11 @@ class ChatViewController: JSQMessagesViewController {
       self.addMessage(id, text: text)
       self.finishReceivingMessage()
     }
+  }
+  
+  private func observeTyping() {
+    let typingIndicatorRef = rootRef.childByAppendingPath("typingIndicator")
+    userIsTypingRef = typingIndicatorRef.childByAppendingPath(senderId)
+    userIsTypingRef.onDisconnectRemoveValue()
   }
 }
