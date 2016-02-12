@@ -29,6 +29,8 @@ class ChatViewController: JSQMessagesViewController {
   var messages = [JSQMessage]()
   var outgoingBubbleImageView: JSQMessagesBubbleImage!
   var incomingBubbleImageView: JSQMessagesBubbleImage!
+  let rootRef = Firebase(url: "https://chatchat-espinaljovanny.firebaseio.com")
+  var messageRef: Firebase!
   
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -37,10 +39,23 @@ class ChatViewController: JSQMessagesViewController {
     //No avatars
     collectionView!.collectionViewLayout.incomingAvatarViewSize = CGSizeZero
     collectionView!.collectionViewLayout.outgoingAvatarViewSize = CGSizeZero
+    messageRef = rootRef.childByAppendingPath("messages")
   }
   
   override func viewDidAppear(animated: Bool) {
     super.viewDidAppear(animated)
+    observeMessages()
+  }
+  
+  override func didPressSendButton(button: UIButton!, withMessageText text: String!, senderId: String!, senderDisplayName: String!, date: NSDate!) {
+    let itemRef = messageRef.childByAutoId()
+    let messageItem = [
+      "text": text,
+      "senderID": senderId]
+    
+    itemRef.setValue(messageItem)
+    JSQSystemSoundPlayer.jsq_playMessageSentSound()
+    finishSendingMessage()
   }
   
   override func viewDidDisappear(animated: Bool) {
@@ -61,6 +76,20 @@ class ChatViewController: JSQMessagesViewController {
     incomingBubbleImageView = factory.incomingMessagesBubbleImageWithColor(UIColor.jsq_messageBubbleLightGrayColor())
   }
   
+  override func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
+    let cell = super.collectionView(collectionView, cellForItemAtIndexPath: indexPath) as! JSQMessagesCollectionViewCell
+    
+    let message = messages[indexPath.item]
+    
+    if message.senderId == senderId {
+      cell.textView!.textColor = UIColor.whiteColor()
+    } else {
+      cell.textView!.textColor = UIColor.blackColor()
+    }
+    
+    return cell
+  }
+  
   override func collectionView(collectionView: JSQMessagesCollectionView!, messageBubbleImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageBubbleImageDataSource! {
     let message = messages[indexPath.item]
     if message.senderId == senderId {
@@ -72,5 +101,22 @@ class ChatViewController: JSQMessagesViewController {
   
   override func collectionView(collectionView: JSQMessagesCollectionView!, avatarImageDataForItemAtIndexPath indexPath: NSIndexPath!) -> JSQMessageAvatarImageDataSource! {
     return nil
+  }
+  
+  func addMessage(id: String, text: String) {
+    let message = JSQMessage(senderId: id, displayName: "", text: text)
+    messages.append(message)
+  }
+  
+  private func observeMessages() {
+    let messagesQuery = messageRef.queryLimitedToLast(25)
+    
+    messagesQuery.observeEventType(.ChildAdded) { (snapshot: FDataSnapshot!) in
+      let id  = snapshot.value["senderID"] as! String
+      let text = snapshot.value["text"] as! String
+      
+      self.addMessage(id, text: text)
+      self.finishReceivingMessage()
+    }
   }
 }
